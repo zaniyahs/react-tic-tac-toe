@@ -53,9 +53,8 @@ function Board({ xIsNext, squares, onPlay, size }) {
 }
 
 function calculateWinner(squares, size) {
-  const winLength = Math.min(size, size);
+  const winLength = size;
 
-  // Check rows
   for (let row = 0; row < size; row++) {
     for (let col = 0; col <= size - winLength; col++) {
       const first = squares[row * size + col];
@@ -68,7 +67,6 @@ function calculateWinner(squares, size) {
     }
   }
 
-  // Check columns
   for (let col = 0; col < size; col++) {
     for (let row = 0; row <= size - winLength; row++) {
       const first = squares[row * size + col];
@@ -81,7 +79,6 @@ function calculateWinner(squares, size) {
     }
   }
 
-  // Check diagonal top-left to bottom-right
   for (let row = 0; row <= size - winLength; row++) {
     for (let col = 0; col <= size - winLength; col++) {
       const first = squares[row * size + col];
@@ -94,7 +91,6 @@ function calculateWinner(squares, size) {
     }
   }
 
-  // Check diagonal top-right to bottom-left
   for (let row = 0; row <= size - winLength; row++) {
     for (let col = winLength - 1; col < size; col++) {
       const first = squares[row * size + col];
@@ -110,13 +106,14 @@ function calculateWinner(squares, size) {
   return null;
 }
 
-function minimax(squares, depth, isMaximizing, computerPlayer, size) {
+function minimax(squares, depth, isMaximizing, computerPlayer, size, maxDepth) {
   const humanPlayer = computerPlayer === 'X' ? 'O' : 'X';
   const winner = calculateWinner(squares, size);
 
   if (winner === computerPlayer) return 10 - depth;
   if (winner === humanPlayer) return depth - 10;
   if (squares.every(s => s !== null)) return 0;
+  if (depth >= maxDepth) return 0;
 
   if (isMaximizing) {
     let bestScore = -Infinity;
@@ -124,7 +121,7 @@ function minimax(squares, depth, isMaximizing, computerPlayer, size) {
       if (!squares[i]) {
         const nextSquares = squares.slice();
         nextSquares[i] = computerPlayer;
-        const score = minimax(nextSquares, depth + 1, false, computerPlayer, size);
+        const score = minimax(nextSquares, depth + 1, false, computerPlayer, size, maxDepth);
         bestScore = Math.max(score, bestScore);
       }
     }
@@ -135,7 +132,7 @@ function minimax(squares, depth, isMaximizing, computerPlayer, size) {
       if (!squares[i]) {
         const nextSquares = squares.slice();
         nextSquares[i] = humanPlayer;
-        const score = minimax(nextSquares, depth + 1, true, computerPlayer, size);
+        const score = minimax(nextSquares, depth + 1, true, computerPlayer, size, maxDepth);
         bestScore = Math.min(score, bestScore);
       }
     }
@@ -144,6 +141,8 @@ function minimax(squares, depth, isMaximizing, computerPlayer, size) {
 }
 
 function findBestMove(squares, player, size) {
+  // Limit depth based on board size to prevent freezing
+  const maxDepth = size === 3 ? 9 : size === 4 ? 3 : 2;
   let bestScore = -Infinity;
   let bestMove = null;
 
@@ -151,7 +150,7 @@ function findBestMove(squares, player, size) {
     if (!squares[i]) {
       const nextSquares = squares.slice();
       nextSquares[i] = player;
-      const score = minimax(nextSquares, 0, false, player, size);
+      const score = minimax(nextSquares, 0, false, player, size, maxDepth);
       if (score > bestScore) {
         bestScore = score;
         bestMove = i;
@@ -159,6 +158,17 @@ function findBestMove(squares, player, size) {
     }
   }
   return bestMove;
+}
+
+function mapBoard(oldSquares, oldSize, newSize) {
+  const newSquares = Array(newSize * newSize).fill(null);
+  const minSize = Math.min(oldSize, newSize);
+  for (let row = 0; row < minSize; row++) {
+    for (let col = 0; col < minSize; col++) {
+      newSquares[row * newSize + col] = oldSquares[row * oldSize + col];
+    }
+  }
+  return newSquares;
 }
 
 export default function Game() {
@@ -177,14 +187,17 @@ export default function Game() {
       !calculateWinner(currentSquares, size) &&
       currentSquares.some(s => s === null)
     ) {
-      const bestMove = findBestMove(currentSquares, currentPlayer, size);
-      if (bestMove !== null) {
-        const nextSquares = currentSquares.slice();
-        nextSquares[bestMove] = currentPlayer;
-        const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
-        setHistory(nextHistory);
-        setCurrentMove(nextHistory.length - 1);
-      }
+      const timer = setTimeout(() => {
+        const bestMove = findBestMove(currentSquares, currentPlayer, size);
+        if (bestMove !== null) {
+          const nextSquares = currentSquares.slice();
+          nextSquares[bestMove] = currentPlayer;
+          const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+          setHistory(nextHistory);
+          setCurrentMove(nextHistory.length - 1);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [currentMove, currentSquares, history, isComputerTurn, currentPlayer, size]);
 
@@ -206,9 +219,10 @@ export default function Game() {
 
   function handleSizeChange(e) {
     const newSize = parseInt(e.target.value);
+    const mappedSquares = mapBoard(currentSquares, size, newSize);
     setSize(newSize);
-    setHistory([Array(newSize * newSize).fill(null)]);
-    setCurrentMove(0);
+    setHistory([...history.slice(0, currentMove + 1), mappedSquares]);
+    setCurrentMove(currentMove + 1);
   }
 
   function handleSwitch() {
