@@ -22,13 +22,15 @@ function Board({ xIsNext, squares, onPlay }) {
     onPlay(nextSquares);
   }
 
-  const winner = calculateWinner(squares);
-  let status;
-  if (winner) {
-    status = 'Winner: ' + winner;
-  } else {
-    status = 'Next player: ' + (xIsNext ? 'X' : 'O');
+  function calculateWinner(squares) {
+  const str = squares.map(s => s || '-').join('');
+  const re = /^(?:(?:...){0,2}([OX])\1\1|.{0,2}([OX])..\2..\2|([OX])...\3...\3|..([OX]).\4.\4)/g;
+  const match = re.exec(str);
+  if (match) {
+    return match[1] || match[2] || match[3] || match[4];
   }
+  return null;
+}
 
   return (
     <>
