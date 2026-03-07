@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function Square({ value, onSquareClick }) {
   return (
@@ -26,6 +26,8 @@ function Board({ xIsNext, squares, onPlay }) {
   let status;
   if (winner) {
     status = 'Winner: ' + winner;
+  } else if (squares.every(s => s !== null)) {
+    status = 'Draw!';
   } else {
     status = 'Next player: ' + (xIsNext ? 'X' : 'O');
   }
@@ -52,11 +54,53 @@ function Board({ xIsNext, squares, onPlay }) {
   );
 }
 
+function findBestMove(squares) {
+  const moveOrder = [4, 0, 2, 6, 8, 1, 3, 5, 7];
+
+  // a. Check if O can win
+  for (let i = 0; i < 9; i++) {
+    if (!squares[i]) {
+      const testSquares = squares.slice();
+      testSquares[i] = 'O';
+      if (calculateWinner(testSquares) === 'O') return i;
+    }
+  }
+
+  // b. Check if X is about to win and block
+  for (let i = 0; i < 9; i++) {
+    if (!squares[i]) {
+      const testSquares = squares.slice();
+      testSquares[i] = 'X';
+      if (calculateWinner(testSquares) === 'X') return i;
+    }
+  }
+
+  // c. Pick best available square by priority
+  for (let i = 0; i < moveOrder.length; i++) {
+    if (!squares[moveOrder[i]]) return moveOrder[i];
+  }
+
+  return null;
+}
+
 export default function Game() {
   const [history, setHistory] = useState([Array(9).fill(null)]);
   const [currentMove, setCurrentMove] = useState(0);
   const xIsNext = currentMove % 2 === 0;
   const currentSquares = history[currentMove];
+
+  useEffect(() => {
+    if (!xIsNext && !calculateWinner(currentSquares) && currentSquares.some(s => s === null)) {
+      const bestMove = findBestMove(currentSquares);
+      if (bestMove !== null) {
+        const nextSquares = currentSquares.slice();
+        nextSquares[bestMove] = 'O';
+        const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+        setHistory(nextHistory);
+        setCurrentMove(nextHistory.length - 1);
+      }
+    }
+  }, [currentMove, currentSquares, history, xIsNext]);
 
   function handlePlay(nextSquares) {
     const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
