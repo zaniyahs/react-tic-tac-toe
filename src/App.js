@@ -8,9 +8,9 @@ function Square({ value, onSquareClick }) {
   );
 }
 
-function Board({ xIsNext, squares, onPlay }) {
+function Board({ xIsNext, squares, onPlay, size }) {
   function handleClick(i) {
-    if (calculateWinner(squares) || squares[i]) {
+    if (calculateWinner(squares, size) || squares[i]) {
       return;
     }
     const nextSquares = squares.slice();
@@ -22,7 +22,7 @@ function Board({ xIsNext, squares, onPlay }) {
     onPlay(nextSquares);
   }
 
-  const winner = calculateWinner(squares);
+  const winner = calculateWinner(squares, size);
   let status;
   if (winner) {
     status = 'Winner: ' + winner;
@@ -32,55 +32,110 @@ function Board({ xIsNext, squares, onPlay }) {
     status = 'Next player: ' + (xIsNext ? 'X' : 'O');
   }
 
+  const rows = [];
+  for (let row = 0; row < size; row++) {
+    const cols = [];
+    for (let col = 0; col < size; col++) {
+      const i = row * size + col;
+      cols.push(
+        <Square key={i} value={squares[i]} onSquareClick={() => handleClick(i)} />
+      );
+    }
+    rows.push(<div key={row} className="board-row">{cols}</div>);
+  }
+
   return (
     <>
       <div className="status">{status}</div>
-      <div className="board-row">
-        <Square value={squares[0]} onSquareClick={() => handleClick(0)} />
-        <Square value={squares[1]} onSquareClick={() => handleClick(1)} />
-        <Square value={squares[2]} onSquareClick={() => handleClick(2)} />
-      </div>
-      <div className="board-row">
-        <Square value={squares[3]} onSquareClick={() => handleClick(3)} />
-        <Square value={squares[4]} onSquareClick={() => handleClick(4)} />
-        <Square value={squares[5]} onSquareClick={() => handleClick(5)} />
-      </div>
-      <div className="board-row">
-        <Square value={squares[6]} onSquareClick={() => handleClick(6)} />
-        <Square value={squares[7]} onSquareClick={() => handleClick(7)} />
-        <Square value={squares[8]} onSquareClick={() => handleClick(8)} />
-      </div>
+      {rows}
     </>
   );
 }
 
-function minimax(squares, depth, isMaximizing, computerPlayer) {
-  const humanPlayer = computerPlayer === 'X' ? 'O' : 'X';
-  const winner = calculateWinner(squares);
+function calculateWinner(squares, size) {
+  const winLength = Math.min(size, size);
 
-  // Terminal conditions
+  // Check rows
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col <= size - winLength; col++) {
+      const first = squares[row * size + col];
+      if (!first) continue;
+      let win = true;
+      for (let k = 1; k < winLength; k++) {
+        if (squares[row * size + col + k] !== first) { win = false; break; }
+      }
+      if (win) return first;
+    }
+  }
+
+  // Check columns
+  for (let col = 0; col < size; col++) {
+    for (let row = 0; row <= size - winLength; row++) {
+      const first = squares[row * size + col];
+      if (!first) continue;
+      let win = true;
+      for (let k = 1; k < winLength; k++) {
+        if (squares[(row + k) * size + col] !== first) { win = false; break; }
+      }
+      if (win) return first;
+    }
+  }
+
+  // Check diagonal top-left to bottom-right
+  for (let row = 0; row <= size - winLength; row++) {
+    for (let col = 0; col <= size - winLength; col++) {
+      const first = squares[row * size + col];
+      if (!first) continue;
+      let win = true;
+      for (let k = 1; k < winLength; k++) {
+        if (squares[(row + k) * size + (col + k)] !== first) { win = false; break; }
+      }
+      if (win) return first;
+    }
+  }
+
+  // Check diagonal top-right to bottom-left
+  for (let row = 0; row <= size - winLength; row++) {
+    for (let col = winLength - 1; col < size; col++) {
+      const first = squares[row * size + col];
+      if (!first) continue;
+      let win = true;
+      for (let k = 1; k < winLength; k++) {
+        if (squares[(row + k) * size + (col - k)] !== first) { win = false; break; }
+      }
+      if (win) return first;
+    }
+  }
+
+  return null;
+}
+
+function minimax(squares, depth, isMaximizing, computerPlayer, size) {
+  const humanPlayer = computerPlayer === 'X' ? 'O' : 'X';
+  const winner = calculateWinner(squares, size);
+
   if (winner === computerPlayer) return 10 - depth;
   if (winner === humanPlayer) return depth - 10;
   if (squares.every(s => s !== null)) return 0;
 
   if (isMaximizing) {
     let bestScore = -Infinity;
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < squares.length; i++) {
       if (!squares[i]) {
         const nextSquares = squares.slice();
         nextSquares[i] = computerPlayer;
-        const score = minimax(nextSquares, depth + 1, false, computerPlayer);
+        const score = minimax(nextSquares, depth + 1, false, computerPlayer, size);
         bestScore = Math.max(score, bestScore);
       }
     }
     return bestScore;
   } else {
     let bestScore = Infinity;
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < squares.length; i++) {
       if (!squares[i]) {
         const nextSquares = squares.slice();
         nextSquares[i] = humanPlayer;
-        const score = minimax(nextSquares, depth + 1, true, computerPlayer);
+        const score = minimax(nextSquares, depth + 1, true, computerPlayer, size);
         bestScore = Math.min(score, bestScore);
       }
     }
@@ -88,15 +143,15 @@ function minimax(squares, depth, isMaximizing, computerPlayer) {
   }
 }
 
-function findBestMove(squares, player) {
+function findBestMove(squares, player, size) {
   let bestScore = -Infinity;
   let bestMove = null;
 
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < squares.length; i++) {
     if (!squares[i]) {
       const nextSquares = squares.slice();
       nextSquares[i] = player;
-      const score = minimax(nextSquares, 0, false, player);
+      const score = minimax(nextSquares, 0, false, player, size);
       if (score > bestScore) {
         bestScore = score;
         bestMove = i;
@@ -107,6 +162,7 @@ function findBestMove(squares, player) {
 }
 
 export default function Game() {
+  const [size, setSize] = useState(3);
   const [history, setHistory] = useState([Array(9).fill(null)]);
   const [currentMove, setCurrentMove] = useState(0);
   const [humanPlayer, setHumanPlayer] = useState('X');
@@ -118,10 +174,10 @@ export default function Game() {
   useEffect(() => {
     if (
       isComputerTurn &&
-      !calculateWinner(currentSquares) &&
+      !calculateWinner(currentSquares, size) &&
       currentSquares.some(s => s === null)
     ) {
-      const bestMove = findBestMove(currentSquares, currentPlayer);
+      const bestMove = findBestMove(currentSquares, currentPlayer, size);
       if (bestMove !== null) {
         const nextSquares = currentSquares.slice();
         nextSquares[bestMove] = currentPlayer;
@@ -130,7 +186,7 @@ export default function Game() {
         setCurrentMove(nextHistory.length - 1);
       }
     }
-  }, [currentMove, currentSquares, history, isComputerTurn, currentPlayer]);
+  }, [currentMove, currentSquares, history, isComputerTurn, currentPlayer, size]);
 
   function handlePlay(nextSquares) {
     if (isComputerTurn) return;
@@ -144,16 +200,23 @@ export default function Game() {
   }
 
   function handleReset() {
-    setHistory([Array(9).fill(null)]);
+    setHistory([Array(size * size).fill(null)]);
+    setCurrentMove(0);
+  }
+
+  function handleSizeChange(e) {
+    const newSize = parseInt(e.target.value);
+    setSize(newSize);
+    setHistory([Array(newSize * newSize).fill(null)]);
     setCurrentMove(0);
   }
 
   function handleSwitch() {
     const opponent = humanPlayer === 'X' ? 'O' : 'X';
-    const bestMove = findBestMove(currentSquares, currentPlayer);
+    const bestMove = findBestMove(currentSquares, currentPlayer, size);
     if (
       bestMove !== null &&
-      !calculateWinner(currentSquares) &&
+      !calculateWinner(currentSquares, size) &&
       currentSquares.some(s => s === null)
     ) {
       const nextSquares = currentSquares.slice();
@@ -182,7 +245,15 @@ export default function Game() {
   return (
     <div className="game">
       <div className="game-board">
-        <Board xIsNext={xIsNext} squares={currentSquares} onPlay={handlePlay} />
+        <div>
+          <label>Board Size: </label>
+          <select onChange={handleSizeChange} value={size}>
+            <option value={3}>3x3</option>
+            <option value={4}>4x4</option>
+            <option value={5}>5x5</option>
+          </select>
+        </div>
+        <Board xIsNext={xIsNext} squares={currentSquares} onPlay={handlePlay} size={size} />
         <button onClick={handleReset}>Reset Game</button>
         <button onClick={handleSwitch}>
           Switch to Player {humanPlayer === 'X' ? 'O' : 'X'}
@@ -193,14 +264,4 @@ export default function Game() {
       </div>
     </div>
   );
-}
-
-function calculateWinner(squares) {
-  const str = squares.map(s => s || '-').join('');
-  const re = /^(?:(?:...){0,2}([OX])\1\1|.{0,2}([OX])..\2..\2|([OX])...\3...\3|..([OX]).\4.\4)/g;
-  const match = re.exec(str);
-  if (match) {
-    return match[1] || match[2] || match[3] || match[4];
-  }
-  return null;
 }
