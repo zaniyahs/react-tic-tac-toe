@@ -54,34 +54,56 @@ function Board({ xIsNext, squares, onPlay }) {
   );
 }
 
+function minimax(squares, depth, isMaximizing, computerPlayer) {
+  const humanPlayer = computerPlayer === 'X' ? 'O' : 'X';
+  const winner = calculateWinner(squares);
+
+  // Terminal conditions
+  if (winner === computerPlayer) return 10 - depth;
+  if (winner === humanPlayer) return depth - 10;
+  if (squares.every(s => s !== null)) return 0;
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!squares[i]) {
+        const nextSquares = squares.slice();
+        nextSquares[i] = computerPlayer;
+        const score = minimax(nextSquares, depth + 1, false, computerPlayer);
+        bestScore = Math.max(score, bestScore);
+      }
+    }
+    return bestScore;
+  } else {
+    let bestScore = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!squares[i]) {
+        const nextSquares = squares.slice();
+        nextSquares[i] = humanPlayer;
+        const score = minimax(nextSquares, depth + 1, true, computerPlayer);
+        bestScore = Math.min(score, bestScore);
+      }
+    }
+    return bestScore;
+  }
+}
+
 function findBestMove(squares, player) {
-  const opponent = player === 'X' ? 'O' : 'X';
-  const moveOrder = [4, 0, 2, 6, 8, 1, 3, 5, 7];
+  let bestScore = -Infinity;
+  let bestMove = null;
 
-  // a. Check if player can win
   for (let i = 0; i < 9; i++) {
     if (!squares[i]) {
-      const testSquares = squares.slice();
-      testSquares[i] = player;
-      if (calculateWinner(testSquares) === player) return i;
+      const nextSquares = squares.slice();
+      nextSquares[i] = player;
+      const score = minimax(nextSquares, 0, false, player);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = i;
+      }
     }
   }
-
-  // b. Block opponent from winning
-  for (let i = 0; i < 9; i++) {
-    if (!squares[i]) {
-      const testSquares = squares.slice();
-      testSquares[i] = opponent;
-      if (calculateWinner(testSquares) === opponent) return i;
-    }
-  }
-
-  // c. Pick best available square by priority
-  for (let i = 0; i < moveOrder.length; i++) {
-    if (!squares[moveOrder[i]]) return moveOrder[i];
-  }
-
-  return null;
+  return bestMove;
 }
 
 export default function Game() {
@@ -128,7 +150,6 @@ export default function Game() {
 
   function handleSwitch() {
     const opponent = humanPlayer === 'X' ? 'O' : 'X';
-    // Computer makes the current player's move first
     const bestMove = findBestMove(currentSquares, currentPlayer);
     if (
       bestMove !== null &&
