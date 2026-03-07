@@ -54,24 +54,25 @@ function Board({ xIsNext, squares, onPlay }) {
   );
 }
 
-function findBestMove(squares) {
+function findBestMove(squares, player) {
+  const opponent = player === 'X' ? 'O' : 'X';
   const moveOrder = [4, 0, 2, 6, 8, 1, 3, 5, 7];
 
-  // a. Check if O can win
+  // a. Check if player can win
   for (let i = 0; i < 9; i++) {
     if (!squares[i]) {
       const testSquares = squares.slice();
-      testSquares[i] = 'O';
-      if (calculateWinner(testSquares) === 'O') return i;
+      testSquares[i] = player;
+      if (calculateWinner(testSquares) === player) return i;
     }
   }
 
-  // b. Check if X is about to win and block
+  // b. Block opponent from winning
   for (let i = 0; i < 9; i++) {
     if (!squares[i]) {
       const testSquares = squares.slice();
-      testSquares[i] = 'X';
-      if (calculateWinner(testSquares) === 'X') return i;
+      testSquares[i] = opponent;
+      if (calculateWinner(testSquares) === opponent) return i;
     }
   }
 
@@ -86,23 +87,31 @@ function findBestMove(squares) {
 export default function Game() {
   const [history, setHistory] = useState([Array(9).fill(null)]);
   const [currentMove, setCurrentMove] = useState(0);
+  const [humanPlayer, setHumanPlayer] = useState('X');
   const xIsNext = currentMove % 2 === 0;
+  const currentPlayer = xIsNext ? 'X' : 'O';
   const currentSquares = history[currentMove];
+  const isComputerTurn = currentPlayer !== humanPlayer;
 
   useEffect(() => {
-    if (!xIsNext && !calculateWinner(currentSquares) && currentSquares.some(s => s === null)) {
-      const bestMove = findBestMove(currentSquares);
+    if (
+      isComputerTurn &&
+      !calculateWinner(currentSquares) &&
+      currentSquares.some(s => s === null)
+    ) {
+      const bestMove = findBestMove(currentSquares, currentPlayer);
       if (bestMove !== null) {
         const nextSquares = currentSquares.slice();
-        nextSquares[bestMove] = 'O';
+        nextSquares[bestMove] = currentPlayer;
         const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
         setHistory(nextHistory);
         setCurrentMove(nextHistory.length - 1);
       }
     }
-  }, [currentMove, currentSquares, history, xIsNext]);
+  }, [currentMove, currentSquares, history, isComputerTurn, currentPlayer]);
 
   function handlePlay(nextSquares) {
+    if (isComputerTurn) return;
     const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
     setHistory(nextHistory);
     setCurrentMove(nextHistory.length - 1);
@@ -115,6 +124,24 @@ export default function Game() {
   function handleReset() {
     setHistory([Array(9).fill(null)]);
     setCurrentMove(0);
+  }
+
+  function handleSwitch() {
+    const opponent = humanPlayer === 'X' ? 'O' : 'X';
+    // Computer makes the current player's move first
+    const bestMove = findBestMove(currentSquares, currentPlayer);
+    if (
+      bestMove !== null &&
+      !calculateWinner(currentSquares) &&
+      currentSquares.some(s => s === null)
+    ) {
+      const nextSquares = currentSquares.slice();
+      nextSquares[bestMove] = currentPlayer;
+      const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+      setHistory(nextHistory);
+      setCurrentMove(nextHistory.length - 1);
+    }
+    setHumanPlayer(opponent);
   }
 
   const moves = history.map((squares, move) => {
@@ -136,6 +163,9 @@ export default function Game() {
       <div className="game-board">
         <Board xIsNext={xIsNext} squares={currentSquares} onPlay={handlePlay} />
         <button onClick={handleReset}>Reset Game</button>
+        <button onClick={handleSwitch}>
+          Switch to Player {humanPlayer === 'X' ? 'O' : 'X'}
+        </button>
       </div>
       <div className="game-info">
         <ol>{moves}</ol>
